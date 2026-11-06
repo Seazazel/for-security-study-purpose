@@ -1,0 +1,11 @@
+# These files are intentionally vulnerable teaching examples for Week 15.
+# Keep the allowlist narrow; all other repository content remains scanned.
+[[allowlists]]
+description = "Week 15 teaching examples"
+paths = [
+  '''(^|/)insecure_service\.py$''',
+  '''(^|/)sample-service\.py$''',
+  '''(^|/)secure_service\.py$''',
+  '''(^|/)worksheet\.md$''',
+  '''(^|/)README.*\.md$'''
+]
