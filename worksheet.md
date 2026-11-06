@@ -147,3 +147,155 @@ AI is a power tool you must **distrust** — you are graded on your *critique*, 
 
 **B. Prompt Problem.** Write a **single prompt** that makes an AI produce a *correct, secure* fix for one finding. Run it: does the exploit now fail? If not, refine the prompt and try again. Submit the **final prompt + the verified result**.
 *Graded on the prompt's precision and your verification — this trains problem decomposition and AI literacy (Denny et al. 2024).*
+
+---
+
+## Student submission — Task 5, Reflection, Evidence, Audit and Comprehension
+
+### Task 5 — Break-the-Build scoreboard
+
+| Finding tested | Team | Points | Evidence |
+|---|---:|---:|---|
+| `urllib3==1.25.0` in the standard `requirements.txt` manifest | Blue | +1 | [PR #2](https://github.com/Seazazel/for-security-study-purpose/pull/2), Trivy SCA gate failed |
+| `USER root` in `Dockerfile.task4-root` | Blue | +1 | [PR #3](https://github.com/Seazazel/for-security-study-purpose/pull/3), Trivy IaC gate failed with DS-0002 |
+| `TRAINING_TOKEN` hard-coded token | Blue | +1 | [PR #4](https://github.com/Seazazel/for-security-study-purpose/pull/4), Gitleaks gate failed |
+| `chmod 777` or `FROM:latest` bypass | Red | 0 | Not tested as an additional bypass in this submission |
+
+**Score: Blue 3, Red 0.**
+
+The three Blue points were caught by separate controls. Trivy SCA failed at
+`Gate — fail on HIGH/CRITICAL (SCA)` with `exit-code: "1"`. Trivy config failed
+at `Gate — fail on HIGH/CRITICAL (IaC)` with `exit-code: "1"`. Gitleaks failed
+at `Gate — fail if any secret found` with `--exit-code 1`.
+
+**Proposed gate improvement:** add a non-blocking MEDIUM review report and
+custom IaC rules for `chmod 777` and mutable image tags such as `FROM:latest`.
+The team should also require a non-root `USER` instruction in every production
+Dockerfile. HIGH and CRITICAL findings should remain blocking, while MEDIUM
+findings should create a review item with an owner and due date.
+
+### Part 4 — Reflection
+
+#### 1. Mapping
+
+| Control exercised | OWASP category | CWE | Rationale |
+|---|---|---|---|
+| Structured authentication and authorization logging | A09 | CWE-532 | The service logs event, outcome, subject/reason and source IP without logging the token value. |
+| Fail-closed `/admin` exception handling | A10 | CWE-636 | An unexpected error returns 403 instead of granting access. |
+| Trivy dependency scanning | A03 | Supply-chain risk | A vulnerable third-party dependency is detected before merge. |
+| Trivy Dockerfile/IaC scanning | A02 | CWE-16 | Running the container as root is a security misconfiguration. |
+| Gitleaks secret scanning | A03 | CWE-798 | A hard-coded training token is detected before it can be merged. |
+
+#### 2. Real incident
+
+The Equifax breach showed how inadequate security visibility and control
+monitoring can delay detection of an attack. An A09-style control that alerted
+when the inspection and monitoring control stopped working, together with
+centralized security event logging, could have reduced the time before the
+incident was discovered. In this lab the equivalent practice is to log
+authentication and authorization failures and send them to a SIEM without
+recording the secret itself.
+
+#### 3. Best mitigation
+
+The CI gate and fail-closed application code protect different stages. The CI
+gate blocks known vulnerable dependencies, IaC errors and secrets before merge,
+while fail-closed runtime code prevents an unexpected error from becoming an
+authorization bypass. Neither replaces the other: a clean build can still
+contain a runtime logic error, and secure exception handling cannot remove a
+vulnerable dependency. Together they provide defense in depth.
+
+### Evidence and integrity record
+
+The evidence was produced in the public repository
+`Seazazel/for-security-study-purpose`, not in the course repository. The three
+Task 4 pull requests were opened separately, with one defect per pull request:
+
+- [PR #2 — Trivy SCA](https://github.com/Seazazel/for-security-study-purpose/pull/2)
+- [PR #3 — Trivy config](https://github.com/Seazazel/for-security-study-purpose/pull/3)
+- [PR #4 — Gitleaks](https://github.com/Seazazel/for-security-study-purpose/pull/4)
+
+The identity stamp used in the screenshots is:
+
+```powershell
+Write-Output "$(whoami) | 6631503118 | $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss K')"
+```
+
+Attach the screenshots showing that stamp beside each GitHub checks page. The
+personalized flag must be copied from the student's own local run; do not copy
+another student's value:
+
+```text
+Personalized flag: FLAG{PASTE-YOUR-OWN-8090-FLAG-HERE}
+```
+
+**What I did and why the vulnerabilities worked:** I placed one vulnerable
+dependency, one root-container configuration and one fake hard-coded training
+token in separate branches and opened separate pull requests. The dependency
+was detected only after using the standard `requirements.txt` filename; the
+root container matched Trivy's DS-0002 rule; and the training token matched
+the custom Gitleaks rule.
+
+**Why the fixes stop the defects and what could still break them:** The
+pipeline re-runs each scanner with a failing exit code, so a matching finding
+blocks the pull request instead of being only reported. The controls can still
+miss a pattern for which no rule exists, such as a `chmod 777` Dockerfile
+instruction in this policy, so custom rules and periodic policy review are
+still required.
+
+### Audit the AI
+
+**AI answer used:**
+
+> Rename the dependency file to `requirements.txt` so Trivy recognizes it,
+> then use an old `urllib3` version. For the secret test, add a fake AWS key
+> and Gitleaks will fail the build. The existing `exit-code: "1"` settings
+> enforce the gate.
+
+**Critique:** The statement about the fake AWS key was incomplete because the
+standard AWS example values were not detected by the configured Gitleaks run,
+and the first dependency filename, `requirements-task4.txt`, was not a
+recognized dependency manifest. The exact risky claims were “Gitleaks will
+fail the build” and “use an old `urllib3` version”; both require verification
+against the actual rule set and severity threshold.
+
+**Correct verified result:** I renamed the file to `requirements.txt`, after
+which Trivy SCA failed the gate. I replaced the AWS example with a
+`TRAINING_TOKEN` value and added a narrow custom Gitleaks rule; PR #4 then
+failed specifically at `Gate — fail if any secret found`, while Semgrep and
+Trivy passed.
+
+### Comprehension and Prompt
+
+#### A. Explain in Plain English
+
+The insecure `/admin` endpoint looks up the authorization token with dictionary
+indexing. A missing or unknown token raises an exception, and the broad
+exception handler mistakenly returns the admin panel and flag, so an
+unauthenticated request is treated as authorized. The secure counterpart uses
+a safe lookup and returns 403 on both invalid credentials and unexpected
+errors.
+
+#### B. Final prompt and verified result
+
+**Final prompt:**
+
+> Review the `/admin` endpoint in `insecure_service.py`. Fix only the
+> authentication and exception-handling logic. A missing token, unknown token,
+> non-admin token and every unexpected exception must return HTTP 403. A valid
+> `alice-token` must still return HTTP 200. Use a safe dictionary lookup, do
+> not log token values, do not expose exception messages to clients, and log
+> only a structured event plus the exception class. Provide PowerShell
+> `curl.exe` commands that verify all deny cases and the valid admin case.
+
+**Verified expected result:**
+
+```text
+GET /admin without Authorization                 -> 403
+GET /admin with invalid-token                    -> 403
+GET /admin with Authorization: bob-token         -> 403
+GET /admin with Authorization: alice-token       -> 200
+```
+
+The result verifies fail-closed behavior while preserving access for the
+valid admin token.
