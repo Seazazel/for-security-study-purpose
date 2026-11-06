@@ -9,3 +9,10 @@ paths = [
   '''(^|/)worksheet\.md$''',
   '''(^|/)README.*\.md$'''
 ]
+
+[[rules]]
+id = "week15-training-token"
+description = "Week 15 training token"
+regex = '''TRAINING_TOKEN\s*=\s*([A-Za-z0-9_-]{20,})'''
+secretGroup = 1
+keywords = ["TRAINING_TOKEN"]
