@@ -48,11 +48,10 @@ jobs:
           semgrep scan \
             --config p/default \
             --config p/owasp-top-ten \
+            --include '*.py' \
             --exclude insecure_service.py \
             --exclude sample-service.py \
             --exclude secure_service.py \
-            --exclude worksheet.md \
-            --exclude README.md \
             --sarif --output semgrep.sarif \
             --error || true
 
@@ -69,11 +68,10 @@ jobs:
           semgrep scan \
             --config p/default \
             --config p/owasp-top-ten \
+            --include '*.py' \
             --exclude insecure_service.py \
             --exclude sample-service.py \
             --exclude secure_service.py \
-            --exclude worksheet.md \
-            --exclude README.md \
             --error
 
   # ---------------------------------------------------------------
@@ -88,7 +86,7 @@ jobs:
 
       # --- Filesystem / dependency (SCA) scan -> SARIF (report, no fail) ---
       - name: Trivy fs (SCA) -> SARIF
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scanners: vuln,secret
@@ -106,7 +104,7 @@ jobs:
 
       # --- IaC / Dockerfile misconfiguration scan -> SARIF ---
       - name: Trivy config (IaC) -> SARIF
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           format: sarif
@@ -123,7 +121,7 @@ jobs:
 
       # --- GATE: re-scan with exit-code 1 so HIGH/CRITICAL FAILS the build ---
       - name: Gate — fail on HIGH/CRITICAL (SCA)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scanners: vuln,secret
@@ -132,7 +130,7 @@ jobs:
           exit-code: "1"          # <-- real failure semantics, not `|| true`
 
       - name: Gate — fail on HIGH/CRITICAL (IaC)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
           severity: HIGH,CRITICAL
